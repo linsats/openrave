@@ -425,14 +425,12 @@ class GraspingModel(DatabaseGenerator):
         print(self.savefilename)
         with open(self.savefilename,'w') as fw:
           for grasp in self.grasps:
-            print("finalfingers")
-            print(grasp[self.graspindices.get('igraspfinalfingers')])
-            print("grasppos")
-            print(grasp[self.graspindices.get('igrasppos')])
-            print("graspdir")
-            print(grasp[self.graspindices.get('igraspdir')])
-            print("roll")
-            print(grasp[self.graspindices.get('igrasproll')])
+            grasppos = grasp[self.graspindices.get('igrasppos')]
+            graspdir = grasp[self.graspindices.get('igraspdir')]
+            fw.writelines('%f %f %f\n' %(grasppos[0],grasppos[1],grasppos[2]))
+            fw.writelines('%f %f %f\n'%(graspdir[0],graspdir[1],graspdir[2]))
+            fw.writelines('%f\n' % grasp[self.graspindices.get('igrasproll')])
+            fw.writelines('%f\n'% grasp[self.graspindices.get('igraspfinalfingers')])
         fw.close()
         print 'grasping finished in %fs'%(time.time()-starttime)
 
@@ -538,8 +536,12 @@ class GraspingModel(DatabaseGenerator):
                 if not forceclosure or mindist >= forceclosurethreshold:
                     grasp[self.graspindices.get('performance')] = self._ComputeGraspPerformance(grasp, graspingnoise=graspingnoise,translate=True,forceclosure=False)
                     if checkgraspfn is None or checkgraspfn(contacts,finalconfig,grasp,{'mindist':mindist,'volume':volume}):
-                        print 'found good grasp'
-                        mean_contacts = np.mean(contacts)
+                        #print 'found good grasp'
+                        mean_contact_pos = numpy.mean(contacts,axis=0)[0:3]
+                        final_pos = grasp[self.graspindices.get('igrasppos')]
+                        grasp_dir = grasp[self.graspindices.get('igraspdir')]
+                        final_pos = final_pos + grasp_dir * numpy.inner(mean_contact_pos - final_pos, grasp_dir) 
+                        grasp[self.graspindices.get('igrasppos')] = final_pos
                         return grasp,
                     
                 return ()

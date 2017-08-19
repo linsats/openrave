@@ -1535,7 +1535,8 @@ protected:
         if( mu == 0 ) {
             return _AnalyzeContacts3D(contacts);
         }
-
+          
+        //std::cout << "mu " << mu << std::endl;
         if( contacts.size() > 500 ) {
             // try reduce time by computing a subset of the points
             vector<CollisionReport::CONTACT> reducedcontacts;
