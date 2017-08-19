@@ -221,7 +221,7 @@ class GraspingModel(DatabaseGenerator):
                 for geom,isdraw in self.hiddengeoms:
                     geom.SetDraw(isdraw)
 
-    def __init__(self,robot,target,maxvelmult=None,graspparametersdof=None):
+    def __init__(self,robot,target,maxvelmult=None,graspparametersdof=None,savefilename=None):
         """
         :param graspparametersdof: a dictionary of custom grasp parameters names and their DOF
         """
@@ -241,6 +241,9 @@ class GraspingModel(DatabaseGenerator):
         self.disableallbodies=True
         self.translationstepmult = None
         self.finestep = None
+        self.savefilename = savefilename
+        self.graspcenters = []
+        print("The result will be saved to %s" % self.savefilename)
         # only the indices used by the TaskManipulation plugin should start with an 'i'
         graspdof = {'igraspdir':3,'igrasppos':3,'igrasproll':1,'igraspstandoff':1,'igrasppreshape':len(self.manip.GetGripperIndices()),'igrasptrans':12,'imanipulatordirection':3,'forceclosure':1,'grasptrans_nocol':12,'performance':1,'vintersectplane':4, 'igraspfinalfingers':len(self.manip.GetGripperIndices()), 'ichuckingdirection':len(self.manip.GetGripperIndices()), 'graspikparam_nocol':8, 'approachdirectionmanip':3, 'igrasptranslationoffset':3 }
         if graspparametersdof is not None:
@@ -419,7 +422,18 @@ class GraspingModel(DatabaseGenerator):
             statesaver = None
         print("total number of good grasps")
         print(len(self.grasps))
-        print(self.grasps)
+        print(self.savefilename)
+        with open(self.savefilename,'w') as fw:
+          for grasp in self.grasps:
+            print("finalfingers")
+            print(grasp[self.graspindices.get('igraspfinalfingers')])
+            print("grasppos")
+            print(grasp[self.graspindices.get('igrasppos')])
+            print("graspdir")
+            print(grasp[self.graspindices.get('igraspdir')])
+            print("roll")
+            print(grasp[self.graspindices.get('igrasproll')])
+        fw.close()
         print 'grasping finished in %fs'%(time.time()-starttime)
 
 
@@ -451,7 +465,8 @@ class GraspingModel(DatabaseGenerator):
             print 'setting preshape ',final
             preshapes = array([final])
         if rolls is None:
-            rolls = arange(0,2*pi,pi/2)
+            #rolls = arange(0,2*pi,pi/2)
+           rolls = arange(0,pi,pi/16)
         if standoffs is None:
             standoffs = array([0,0.025])
         if graspingnoise is None:
@@ -523,7 +538,8 @@ class GraspingModel(DatabaseGenerator):
                 if not forceclosure or mindist >= forceclosurethreshold:
                     grasp[self.graspindices.get('performance')] = self._ComputeGraspPerformance(grasp, graspingnoise=graspingnoise,translate=True,forceclosure=False)
                     if checkgraspfn is None or checkgraspfn(contacts,finalconfig,grasp,{'mindist':mindist,'volume':volume}):
-                        #print 'found good grasp'
+                        print 'found good grasp'
+                        mean_contacts = np.mean(contacts)
                         return grasp,
                     
                 return ()
@@ -1134,6 +1150,7 @@ class GraspingModel(DatabaseGenerator):
                           help='Random undeterministic noise to add to the target object, represents the max possible displacement of any point on the object. Noise is added after global direction and start have been determined (default=0)')
         parser.add_option('--graspindex', action='store', type='int',dest='graspindex',default=None,
                           help='If set, then will only show this grasp index')
+        parser.add_option('--savepath',action="store",type='string',dest='savepath',default=None,help='Set the save file path')
         return parser
     @staticmethod
     def InitializeFromParser(Model=None,parser=None,defaultviewer=True,args=[],*margs,**kwargs):
@@ -1162,7 +1179,8 @@ def run(args,*margs,**kwargs):
             target = robot.GetEnv().ReadKinBodyXMLFile(options.target)
             target.SetTransform(eye(4))
             robot.GetEnv().Add(target)
-        return GraspingModel(robot=robot,target=target)
+            savefilename = options.target.strip().split('/')[-1].split('.xml')[0]
+        return GraspingModel(robot=robot,target=target,savefilename=options.savepath)
 
     GraspingModel.RunFromParser(Model=CreateModel, parser=parser,args=args,defaultviewer=True,*margs,**kwargs)
 
