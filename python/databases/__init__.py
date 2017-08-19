@@ -191,7 +191,9 @@ class DatabaseGenerator(metaclass.AutoReloader):
             env = openravepy_int.Environment()
             destroyenv = True
         try:
-            options.viewername=OpenRAVEGlobalArguments.parseEnvironment(options,env,defaultviewer=defaultviewer,returnviewer=True)
+            #options.viewername=OpenRAVEGlobalArguments.parseEnvironment(options,env,defaultviewer=defaultviewer,returnviewer=True)
+            options.viewername=OpenRAVEGlobalArguments.parseEnvironment(options,env,defaultviewer=None,returnviewer=False)
+ 
             with env:
                 env.Load(options.robot,robotatts)
                 # TODO: if exception is raised after this point, program exits with glibc double-link list corruption. most likely something in Load?
