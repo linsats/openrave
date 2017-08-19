@@ -5,3 +5,5 @@ msvc_soqt/
 msvc_ode/
 msvc_soqt/
 build
+src/dexnet_xml
+src/models/objects/Dexnet_iv
