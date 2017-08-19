@@ -417,6 +417,9 @@ class GraspingModel(DatabaseGenerator):
             for b,enable in bodies:
                 b.Enable(enable)
             statesaver = None
+        print("total number of good grasps")
+        print(len(self.grasps))
+        print(self.grasps)
         print 'grasping finished in %fs'%(time.time()-starttime)
 
 
