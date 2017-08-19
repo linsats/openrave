@@ -407,7 +407,7 @@ class GraspingModel(DatabaseGenerator):
                     producer,consumer,gatherer,numjobs = self.generatepcg(*args,**kwargs)
                     counter = 0
                     for work in producer():
-                        print 'grasp %d/%d'%(counter,numjobs)
+                        #print 'grasp %d/%d'%(counter,numjobs)
                         counter += 1
                         results = consumer(*work)
                         if len(results) > 0:
@@ -523,7 +523,7 @@ class GraspingModel(DatabaseGenerator):
                 if not forceclosure or mindist >= forceclosurethreshold:
                     grasp[self.graspindices.get('performance')] = self._ComputeGraspPerformance(grasp, graspingnoise=graspingnoise,translate=True,forceclosure=False)
                     if checkgraspfn is None or checkgraspfn(contacts,finalconfig,grasp,{'mindist':mindist,'volume':volume}):
-                        print 'found good grasp'
+                        #print 'found good grasp'
                         return grasp,
                     
                 return ()
@@ -660,7 +660,7 @@ class GraspingModel(DatabaseGenerator):
                 else:
                     grasps = self.grasps
                 for i,grasp in enumerate(grasps):
-                    print 'grasp %d/%d'%(i,len(grasps))
+                    #print 'grasp %d/%d'%(i,len(grasps))
                     try:
                         with self.env:
                             contacts,finalconfig,mindist,volume = self.testGrasp(grasp=grasp,translate=True,forceclosure=forceclosure,graspingnoise=graspingnoise)
