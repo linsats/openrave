@@ -1536,10 +1536,10 @@ protected:
             return _AnalyzeContacts3D(contacts);
         }
 
-        if( contacts.size() > 16 ) {
+        if( contacts.size() > 500 ) {
             // try reduce time by computing a subset of the points
             vector<CollisionReport::CONTACT> reducedcontacts;
-            reducedcontacts.reserve(16);
+            reducedcontacts.reserve(500);
             for(size_t i = 0; i < reducedcontacts.capacity(); ++i) {
                 reducedcontacts.push_back( contacts.at((i*contacts.size())/reducedcontacts.capacity()) );
             }
