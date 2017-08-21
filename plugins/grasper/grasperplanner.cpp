@@ -40,13 +40,16 @@ public:
     {
         EnvironmentMutex::scoped_lock lock(GetEnv()->GetMutex());
         _robot = pbase;
-
+        
+        std::cout << "_robot->GetActiveDOF()  " << _robot->GetActiveDOF() << std::endl;
         if( _robot->GetActiveDOF() <= 0 ) {
             return false;
         }
 
         _parameters.reset(new GraspParameters(GetEnv()));
         _parameters->copy(pparams);
+     
+        std::cout << " parameter  " << _parameters << std::endl;
 
         if( _parameters->btightgrasp ) {
             RAVELOG_WARN("tight grasping not supported yet\n");
@@ -202,6 +205,8 @@ public:
                         break;
                     }
                     trobot.trans -= vapproachdir * step_size;
+                    //std::cout << "trobot.trans " << trobot.trans << std::endl;
+ 
                     _robot->SetTransform(trobot);
                 }
             }
@@ -265,8 +270,11 @@ public:
             _vTargetCenter = ab.pos;
             _fTargetRadius = RaveSqrt(ab.extents.lengthsqr3());
         }
+        //std::cout << "_robot->GetAffineDOF() " << _robot->GetAffineDOF() << std::endl;
 
         if( _robot->GetAffineDOF() ) {
+            std::cout << "dofvals " << dofvals.size() << std::endl;
+            // dofvals == 4 if using schunk_manip
             int ct = _MoveStraight(ptraj, vapproachdir, dofvals, CT_RegularCollision);
             if( ct & CT_NothingHit ) {
                 RAVELOG_DEBUG("robot did not hit anything, planner failing...\n");
@@ -283,6 +291,7 @@ public:
             if( _robot->GetAffineDOF() & DOF_Z ) {
                 pZ = &dofvals.at(_robot->GetAffineDOFIndex(DOF_Z));
             }
+         //   std::cout << "_parameters->fstandoff " << _parameters->fstandoff << std::endl;
 
             if( _parameters->fstandoff > 0 || _parameters->vintersectplane.lengthsqr4() > 0.5 ) {
                 // move the robot out of collision first
@@ -387,9 +396,12 @@ public:
 
         std::vector<dReal> vlowerlim, vupperlim;
         _robot->GetActiveDOFLimits(vlowerlim,vupperlim);
+        //std::cout << "vlowerlim" << vlowerlim.size() << std::endl;
+
         vector<dReal> vchuckingdir(_robot->GetActiveDOF(),0);
         if( (int)_parameters->vgoalconfig.size() == _robot->GetActiveDOF() ) {
             vchuckingdir = _parameters->vgoalconfig;
+          //  std::cout << "vchuckingdir" << _parameters->vgoalconfig.size() << std::endl;
         }
         else {
             // get chucking direction from manipulators
@@ -409,7 +421,9 @@ public:
         }
 
         //close the fingers one by one
+        //std::cout << "_robot->GetActiveDOFIndices().size() " << _robot->GetActiveDOFIndices().size() << std::endl;
         for(size_t ifing = 0; ifing < _robot->GetActiveDOFIndices().size(); ifing++) {
+
             if( vchuckingdir.at(ifing) == 0 ) {
                 // not a real joint, so skip
                 continue;
@@ -421,10 +435,16 @@ public:
                 fmult = _parameters->ftranslationstepmult;
             }
             dReal step_size = _parameters->fcoarsestep*fmult;
-
+   
             bool collision = false;
             bool coarse_pass = true;     ///this parameter controls the coarseness of the step
+            //std::cout << "step_size" << step_size << std::endl;
+            //std::cout << "vupperlim " << vupperlim[ifing] << " vlowerlim " << vlowerlim[ifing] << std::endl;
+
             int num_iters = (int)((vupperlim[ifing] - vlowerlim[ifing])/step_size+0.5)+1;
+            
+            //std::cout << "num_iters " << num_iters << std::endl;
+
             if( num_iters <= 1 ) {
                 num_iters = 2; // need at least 2 iterations because of coarse/fine step tuning
             }
@@ -446,8 +466,12 @@ public:
                 if( (vchuckingdir[ifing] > 0 && dofvals[ifing] > vupperlim[ifing]+step_size ) || ( vchuckingdir[ifing] < 0 && dofvals[ifing] < vlowerlim[ifing]-step_size ) ) {
                     break;
                 }
+               // std::cout << "vchuckingdir " << vchuckingdir[ifing] << std::endl;
 
                 dofvals[ifing] += vchuckingdir[ifing] * step_size;
+               // std::cout << "dofvals[ifing] " << dofvals[ifing] << std::endl;
+                char test;
+
                 _robot->SetActiveDOFValues(dofvals,KinBody::CLA_CheckLimitsSilent);
                 _robot->GetActiveDOFValues(dofvals);
                 ct = _CheckCollision(KinBody::JointConstPtr(pjoint),KinBodyPtr());
@@ -517,7 +541,8 @@ public:
             _robot->GetActiveDOFValues(dofvals);
             ptraj->Insert(ptraj->GetNumWaypoints(),dofvals,_robot->GetActiveConfigurationSpecification());
         }
-
+       
+        std::cout << "this planner is not called " << std::endl;
         RAVELOG_VERBOSE("grasp planner finishing\n");
         return ptraj->GetNumWaypoints() > 0 ? PS_HasSolution : PS_Failed;     // only return true if there is at least one valid pose!
     }
@@ -530,14 +555,18 @@ public:
                 break;
             }
         }
+        std::cout << "This is called joint checkcollision " << std::endl;
         return ct;
     }
 
     virtual int _CheckCollision(KinBody::LinkConstPtr plink, KinBodyPtr targetbody)
     {
         int ct = (plink->GetIndex()<<CT_LinkMaskShift);
+        std::cout << "This is called link check collision " << std::endl;
+
         bool bcollision;
         if( !!targetbody ) {
+            std::cout << "It should be here " << std::endl;
             bcollision = GetEnv()->CheckCollision(plink, KinBodyConstPtr(targetbody),_report);
         }
         else {

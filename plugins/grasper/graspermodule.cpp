@@ -136,7 +136,7 @@ public:
         string strsavetraj;
         bool bGetLinkCollisions = false;
         bool bExecute = true;
-        bool bComputeStableContacts = false;
+        bool bComputeStableContacts = true;
         bool bComputeForceClosure = false;
         bool bOutputFinal = false;
         dReal friction = 0;
@@ -278,7 +278,7 @@ public:
                 return false;
             }
         }
-
+        std::cout << "starting " << std::endl;
         if( (int)vchuckingdir.size() == _robot->GetActiveManipulator()->GetGripperDOF() ) {
             params->vgoalconfig.resize(_robot->GetActiveDOF()); // chucking direction
             for(size_t i = 0; i < _robot->GetActiveDOFIndices().size(); ++i) {
@@ -304,7 +304,7 @@ public:
             RAVELOG_WARN("InitPlan failed\n");
             return false;
         }
-
+        
         TrajectoryBasePtr ptraj = RaveCreateTrajectory(GetEnv(),"");
         if( !_planner->PlanPath(ptraj) || ptraj->GetNumWaypoints() == 0 ) {
             return false;
@@ -321,6 +321,8 @@ public:
         _robot->SetConfigurationValues(vdata.begin(),true);
 
         vector< pair<CollisionReport::CONTACT,int> > contacts;
+        bComputeStableContacts = false;
+
         if( bComputeStableContacts ) {
             Vector vworlddirection = !params->targetbody ? params->vtargetdirection : params->targetbody->GetTransform().rotate(params->vtargetdirection);
             _GetStableContacts(contacts, vworlddirection, friction);
@@ -328,9 +330,13 @@ public:
         else {
             // calculate the contact normals
             GetEnv()->GetCollisionChecker()->SetCollisionOptions(CO_Contacts);
+            std::cout << "CO_Contacts " << CO_Contacts << std::endl;
+
             std::vector<KinBody::LinkPtr> vlinks;
             _robot->GetActiveManipulator()->GetChildLinks(vlinks);
             FOREACHC(itlink, vlinks) {
+         //     if( KinBody::LinkConstPtr(*itlink)->GetName() != "gripper_base"){
+              std::cout << KinBody::LinkConstPtr(*itlink)->GetName() << std::endl;
                 if( GetEnv()->CheckCollision(KinBody::LinkConstPtr(*itlink), KinBodyConstPtr(params->targetbody), _report) ) {
                     RAVELOG_VERBOSE(str(boost::format("contact %s\n")%_report->__str__()));
                     FOREACH(itcontact,_report->contacts) {
@@ -341,9 +347,12 @@ public:
                         contacts.push_back(make_pair(*itcontact,(*itlink)->GetIndex()));
                     }
                 }
+                std::cout << "number of contact per gripper " <<  contacts.size() << std::endl;
+           //  }
             }
             GetEnv()->GetCollisionChecker()->SetCollisionOptions(0);
         }
+        std::cout << "number of constacts " << contacts.size() << std::endl;
 
         RAVELOG_VERBOSE(str(boost::format("number of contacts: %d\n")%contacts.size()));
         FOREACH(itcontact,contacts) {
@@ -386,6 +395,8 @@ public:
         if( bExecute && !!_robot->GetController() ) {
             _robot->GetController()->SetPath(ptraj);
         }
+        std::cout << "finish " << std::endl;
+
         return true;
     }
 
@@ -885,6 +896,7 @@ public:
     void _WorkerThread(const WorkerParametersPtr worker_params, EnvironmentBasePtr penv)
     {
         // clone environment
+
         EnvironmentBasePtr pcloneenv = penv->CloneSelf(Clone_Bodies|Clone_Simulation);
         {
             EnvironmentMutex::scoped_lock lock(pcloneenv->GetMutex());
@@ -1457,6 +1469,9 @@ protected:
     {
         BOOST_ASSERT(mu>0);
         RAVELOG_DEBUG("Starting GetStableContacts...\n");
+        mu = 1.0;
+
+        std::cout << "mu friction " << mu << std::endl;
 
         if(!GetEnv()->CheckCollision(KinBodyConstPtr(_robot))) {
             RAVELOG_ERROR("GrasperModule::GetStableContacts - Error: Robot is not colliding with the target.\n");
@@ -1464,18 +1479,26 @@ protected:
         }
 
         //make sure we get the right chucking direction and don't look at irrelevant joints
+        std::cout << "_robot->GetDOF() " << _robot->GetDOF() << std::endl;
+
         vector<dReal> chuckingdir(_robot->GetDOF(),0);
         FOREACH(itmanip,_robot->GetManipulators()) {
             vector<dReal>::const_iterator itchucking = (*itmanip)->GetChuckingDirection().begin();
             FOREACHC(itgripper,(*itmanip)->GetGripperIndices()) {
                 chuckingdir.at(*itgripper) = *itchucking++;
+                std::cout << " itchucking " << *itchucking << std::endl;
             }
         }
 
         // calculate the contact normals using the Jacobian
         std::vector<dReal> J;
+        std::cout << "start  " << std::endl;
         FOREACHC(itlink,_robot->GetLinks()) {
+            std::cout << "klin " << std::endl;
+            std::cout << KinBody::LinkConstPtr(*itlink)->GetName() << std::endl;
             if( GetEnv()->CheckCollision(KinBody::LinkConstPtr(*itlink), _report) )  {
+                std::cout << "_report  " << _report->contacts.size() << std::endl;
+                std::cout << "_robot " <<  _robot->GetLinks().at(0) << std::endl;
                 RAVELOG_DEBUG(str(boost::format("contact %s:%s with %s:%s\n")%_report->plink1->GetParent()->GetName()%_report->plink1->GetName()%_report->plink2->GetParent()->GetName()%_report->plink2->GetName()));
                 FOREACH(itcontact, _report->contacts) {
                     if( _report->plink1 != *itlink )
@@ -1522,12 +1545,14 @@ protected:
                     dReal fsin2 = itcontact->norm.cross(deltaxyz).lengthsqr3();
                     dReal fcos = itcontact->norm.dot3(deltaxyz);
                     bool bstable = fcos > 0 && fsin2 <= fcos*fcos*mu*mu;
+                    bstable = 1;
                     if(bstable) {
                         contacts.push_back(make_pair(*itcontact,(*itlink)->GetIndex()));
                     }
                 }
             }
         }
+        std::cout << "number of stable contacts " << contacts.size() << std::endl;
     }
 
     virtual GRASPANALYSIS _AnalyzeContacts3D(const vector<CollisionReport::CONTACT>& contacts, dReal mu, int Nconepoints)
@@ -1535,8 +1560,8 @@ protected:
         if( mu == 0 ) {
             return _AnalyzeContacts3D(contacts);
         }
-          
-        //std::cout << "mu " << mu << std::endl;
+        mu = 0.3;   
+        std::cout << "mu " << mu << std::endl;
         if( contacts.size() > 500 ) {
             // try reduce time by computing a subset of the points
             vector<CollisionReport::CONTACT> reducedcontacts;

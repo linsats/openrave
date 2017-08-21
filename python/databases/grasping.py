@@ -167,6 +167,7 @@ else:
     from numpy import inf, array
 
 import numpy
+import sys
 from ..openravepy_ext import openrave_exception, planning_error, transformPoints
 from ..openravepy_int import RaveCreateModule, RaveCreateTrajectory, IkParameterization, IkParameterizationType, IkFilterOptions, RaveFindDatabaseFile, RaveDestroy, Environment, Robot, KinBody, DOFAffine, CollisionReport, RaveCreateCollisionChecker, quatRotateDirection, rotationMatrixFromQuat, Ray, poseFromMatrix
 from . import DatabaseGenerator
@@ -464,9 +465,9 @@ class GraspingModel(DatabaseGenerator):
             preshapes = array([final])
         if rolls is None:
             #rolls = arange(0,2*pi,pi/2)
-           rolls = arange(0,pi,pi/16)
+           rolls = arange(0,pi,pi/180)
         if standoffs is None:
-            standoffs = array([0,0.025])
+            standoffs = array([0.00]) # origin code [0, 0.025]
         if graspingnoise is None:
             graspingnoise = 0.0
         if manipulatordirections is None:
@@ -525,23 +526,31 @@ class GraspingModel(DatabaseGenerator):
                 Tlocalgrasp_nocol = dot(linalg.inv(self.target.GetTransform()),Tgrasp_nocol)
                 self.robot.SetDOFValues(finalconfig[0])
                 if self.env.GetViewer() is not None:
+                    print("another new grasp")
+                    #sys.stdin.read(1)
                     self.contactgraph = self.drawContacts(contacts) if len(contacts) > 0 else None
+                    #sys.stdin.read(1)
                     self.env.UpdatePublishedBodies()
+                    print("update the grasping pose")
+                    #sys.stdin.read(1)
                 grasp[self.graspindices.get('igrasptrans')] = reshape(transpose(Tlocalgrasp[0:3,0:4]),12)
                 grasp[self.graspindices.get('grasptrans_nocol')] = reshape(transpose(Tlocalgrasp_nocol[0:3,0:4]),12)
                 grasp[self.graspindices.get('igraspfinalfingers')] = finalconfig[0][self.manip.GetGripperIndices()]
                 grasp[self.graspindices.get('graspikparam_nocol')] = r_[int(IkParameterizationType.Transform6D), poseFromMatrix(Tlocalgrasp_nocol)]
                 grasp[self.graspindices.get('forceclosure')] = mindist if mindist is not None else 0
                 self.robot.SetTransform(Trobotorig) # transform back to original position for checkgraspfn
-                if not forceclosure or mindist >= forceclosurethreshold:
+                if not forceclosure or mindist >= 1e-5:#forceclosurethreshold:
                     grasp[self.graspindices.get('performance')] = self._ComputeGraspPerformance(grasp, graspingnoise=graspingnoise,translate=True,forceclosure=False)
                     if checkgraspfn is None or checkgraspfn(contacts,finalconfig,grasp,{'mindist':mindist,'volume':volume}):
-                        #print 'found good grasp'
+                        print 'found good grasp'
+                        print('mindist') 
+                        print(mindist)
+                        sys.stdin.read(1)
                         mean_contact_pos = numpy.mean(contacts,axis=0)[0:3]
                         final_pos = grasp[self.graspindices.get('igrasppos')]
                         grasp_dir = grasp[self.graspindices.get('igraspdir')]
                         final_pos = final_pos + grasp_dir * numpy.inner(mean_contact_pos - final_pos, grasp_dir) 
-                        grasp[self.graspindices.get('igrasppos')] = final_pos
+                        #grasp[self.graspindices.get('igrasppos')] = mean_contact_pos #final_pos
                         return grasp,
                     
                 return ()
@@ -656,6 +665,7 @@ class GraspingModel(DatabaseGenerator):
                 self.grasps = self.grasps[order]
                 
     def show(self,delay=0.1,options=None,forceclosure=True,showcontacts=True):
+        print("show is calling !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         with self.robot.CreateRobotStateSaver():
             # disable all links not children to the manipulator
             manipchildlinks = self.manip.GetChildLinks()
@@ -699,6 +709,7 @@ class GraspingModel(DatabaseGenerator):
                         print 'bad grasp!',e
 
     def showgrasp(self,grasp,collisionfree=False,useik=False,delay=None,showfinal=False):
+        print("show grasping is callled !!!!!!!!!!!!!!!!!!!!!!!!")
         with self.robot.CreateRobotStateSaver():
             with self.GripperVisibility(self.manip):
                 time.sleep(0.1) # wait sometime for viewer to process the visibility change
@@ -1107,6 +1118,7 @@ class GraspingModel(DatabaseGenerator):
 
     def drawContacts(self,contacts,conelength=0.03,transparency=0.5):
         angs = linspace(0,2*pi,10)
+        print(contacts.shape)
         conepoints = r_[[[0,0,0]],conelength*c_[self.grasper.friction*cos(angs),self.grasper.friction*sin(angs),ones(len(angs))]]
         triinds = array(c_[zeros(len(angs)),range(2,1+len(angs))+[1],range(1,1+len(angs))].flatten(),int)
         allpoints = zeros((0,3))

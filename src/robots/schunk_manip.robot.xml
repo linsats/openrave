@@ -3,8 +3,8 @@
   <Manipulator name="gripper">
     <base>gripper_base</base>
     <effector>gripper_base</effector>
-    <joints>jfinger_L</joints>
-    <closingdirection>-1</closingdirection>
+    <joints>jfinger_L jfinger_R</joints>
+    <closingdirection>-1 1</closingdirection>
     <direction>0 0 1</direction>
   </Manipulator>
 </Robot>
